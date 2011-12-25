@@ -10,6 +10,7 @@ from subprocess import PIPE, Popen
 import re, inspect
 from sysinfo import *
 from sgraph import SimpleGraph
+import new
 
 suffixes = ["B", "kB", "MB", "GB", "TB", "PB"]
 def tosize(bytesize):
@@ -30,9 +31,12 @@ def is_partition_for(disk, part):
     return is_disk(disk) and isinstance(part, Partition) and re.match("^%s\\d+$" % re.escape(disk.name), part.name)
 
 hfs = {
-    Root: lambda tail, p: is_disk(p),
-    Partition: lambda tail, p: is_partition_for(tail, p),
+    Partition: lambda self, tail: (isinstance(tail, Root) and is_disk(self)) or is_partition_for(tail, self),
+    RaidArray: lambda self, tail: isinstance(tail, Partition) and tail.name in self.partition_names,
 }
+
+for klass in hfs.keys():
+    klass.isHeadFor = new.instancemethod(hfs[klass], None, klass)
 
 class DiskGraph(SimpleGraph):
     def __init__(self, sysinfo):
@@ -45,8 +49,7 @@ class DiskGraph(SimpleGraph):
         SimpleGraph.__init__(self, self.headfinder, Root())
 
     def headfinder(self, v):
-        f = hfs[v.__class__]
-        return [h for h in self.pool if f(v, h)]
+        return [h for h in self.pool if h.isHeadFor(v)]
 
     def dump(self):
         self._print(self.root, 0)

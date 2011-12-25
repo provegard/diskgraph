@@ -43,6 +43,22 @@ class TestDiskGraph(unittest.TestCase):
                                    Partition("8 1 1000 sda1".split(" "))]
         dg = DiskGraph(self.sysinfo)
         visited = [x.name for x in list(dg.visit(dg.root))]
-        print dg.headsFor(dg.root)
         self.assertEqual(["root", "sda", "sda1", "sdb"], visited)
 
+    def test_that_raid_array_is_child_of_all_its_devices(self):
+        self.sysinfo.partitions = [Partition("8 0 1000 sda".split(" ")),
+                                   Partition("8 16 1000 sdb".split(" ")),
+                                   Partition("9 0 1000 md0".split(" "))]
+        self.sysinfo.raid_arrays = [RaidArray(("md0 sda sdb".split(" "), 1000))]
+        dg = DiskGraph(self.sysinfo)
+        tails = dg.tailsFor(self.sysinfo.raid_arrays[0])
+        self.assertEqual([self.sysinfo.partitions[0], self.sysinfo.partitions[1]], tails)
+
+    def test_that_raid_array_can_be_child_of_partition(self):
+        self.sysinfo.partitions = [Partition("8 0 1000 sda".split(" ")),
+                                   Partition("8 1 1000 sda1".split(" ")),
+                                   Partition("9 0 1000 md0".split(" "))]
+        self.sysinfo.raid_arrays = [RaidArray(("md0 sda1".split(" "), 1000))]
+        dg = DiskGraph(self.sysinfo)
+        tails = dg.tailsFor(self.sysinfo.raid_arrays[0])
+        self.assertEqual([self.sysinfo.partitions[1]], tails)
