@@ -33,10 +33,11 @@ class SimpleGraph(object):
                     # not seen this one before
                     self._graph[h] = []
 
-    def visit(self, start): #, visitor):
-        """Visit the graph starting at the given vertex. The visitor function
-        will be called for each vertex. The graph is visited using the DFS
-        algorithm and heads are visited left-to-right (i.e. first-to-last).
+    def visit(self, start):
+        """Visit the graph starting at the given vertex. This is a generator
+        function that will return each visited vertex in turn. The graph is 
+        visited using the DFS algorithm and heads are visited left-to-right
+        (i.e. first-to-last).
         """
         visited = []
         vertices = [start]
@@ -46,6 +47,22 @@ class SimpleGraph(object):
             yield v
             heads = [h for h in self.headsFor(v) if not h in visited]
             vertices = heads + vertices
+
+    def visitEdges(self, start):
+        """Visit the edges in the graph starting at the given vertex. This is
+        a generated function that will return each visited edge in turn.
+        """
+        visited = []
+        queue = [(None, start)]
+        while queue:
+            e = queue.pop(0)
+            if e[0]:
+                yield e
+            if e[1] in visited:
+                continue
+            visited.append(e[1])
+            edges = [(e[1], h) for h in self.headsFor(e[1])]
+            queue = edges + queue
 
     def headsFor(self, vertex):
         """Return a list of the heads of the given vertex, i.e. the vertices (if

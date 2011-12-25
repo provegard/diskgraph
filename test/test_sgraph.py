@@ -72,3 +72,17 @@ class TestSimpleGraph(unittest.TestCase):
         visited = list(graph.visit(root))
         self.assertEqual([root, 2, 3], visited)
 
+    def test_that_edges_can_be_visited_for_simple_graph(self):
+        root = 1
+        headfinder = lambda x: [2] if x == root else []
+        graph = SimpleGraph(headfinder, root)
+        visited = list(graph.visitEdges(root))
+        self.assertEqual([(root, 2)], visited)
+
+    def test_that_edges_can_be_visited_for_graph_with_loop(self):
+        root = 1
+        headfinder = lambda x: [2] if x == root else [root]
+        graph = SimpleGraph(headfinder, root)
+        visited = list(graph.visitEdges(root))
+        self.assertEqual([(root, 2), (2, root)], visited)
+
