@@ -5,12 +5,16 @@ import unittest
 class dummy(object):
     pass
 
-class TestDiskGraph(unittest.TestCase):
+class Setup(object):
     def setUp(self):
         sysinfo = dummy()
         sysinfo.partitions = sysinfo.raid_arrays = sysinfo.lvm_pvs = sysinfo.lvm_vgs = sysinfo.lvm_lvs = []
         self.sysinfo = sysinfo
 
+    def assertListEquivalent(self, l1, l2):
+        self.assertEqual(sorted(l1), sorted(l2))
+
+class TestDiskGraphDiskAndPartitions(Setup, unittest.TestCase):
     def test_graph_with_single_disk(self):
         self.sysinfo.partitions = [Partition("8 0 1000 sda".split(" "))]
         dg = DiskGraph(self.sysinfo)
@@ -45,6 +49,7 @@ class TestDiskGraph(unittest.TestCase):
         visited = [x.name for x in list(dg.visit(dg.root))]
         self.assertEqual(["root", "sda", "sda1", "sdb"], visited)
 
+class TestDiskGraphRaidArray(Setup, unittest.TestCase):
     def test_that_raid_array_is_child_of_all_its_devices(self):
         self.sysinfo.partitions = [Partition("8 0 1000 sda".split(" ")),
                                    Partition("8 16 1000 sdb".split(" ")),
@@ -52,7 +57,7 @@ class TestDiskGraph(unittest.TestCase):
         self.sysinfo.raid_arrays = [RaidArray(("md0 sda sdb".split(" "), 1000))]
         dg = DiskGraph(self.sysinfo)
         tails = dg.tailsFor(self.sysinfo.raid_arrays[0])
-        self.assertEqual([self.sysinfo.partitions[0], self.sysinfo.partitions[1]], tails)
+        self.assertListEquivalent([self.sysinfo.partitions[0], self.sysinfo.partitions[1]], tails)
 
     def test_that_raid_array_can_be_child_of_partition(self):
         self.sysinfo.partitions = [Partition("8 0 1000 sda".split(" ")),
@@ -61,4 +66,59 @@ class TestDiskGraph(unittest.TestCase):
         self.sysinfo.raid_arrays = [RaidArray(("md0 sda1".split(" "), 1000))]
         dg = DiskGraph(self.sysinfo)
         tails = dg.tailsFor(self.sysinfo.raid_arrays[0])
-        self.assertEqual([self.sysinfo.partitions[1]], tails)
+        self.assertListEquivalent([self.sysinfo.partitions[1]], tails)
+
+class TestDiskGraphLvmPhysicalVolume(Setup, unittest.TestCase):
+    def test_that_volume_is_child_of_device(self):
+        self.sysinfo.partitions = [Partition("8 0 1000 sda".split(" "))]
+        self.sysinfo.lvm_pvs = [LvmPhysicalVolume("/dev/sda 1000".split(" "))]
+        dg = DiskGraph(self.sysinfo)
+        tails = dg.tailsFor(self.sysinfo.lvm_pvs[0])
+        self.assertListEquivalent([self.sysinfo.partitions[0]], tails)
+
+    def test_that_volume_can_be_child_of_partition(self):
+        self.sysinfo.partitions = [Partition("8 0 1000 sda".split(" ")),
+                                   Partition("8 1 1000 sda1".split(" "))]
+        self.sysinfo.lvm_pvs = [LvmPhysicalVolume("/dev/sda1 1000".split(" "))]
+        dg = DiskGraph(self.sysinfo)
+        tails = dg.tailsFor(self.sysinfo.lvm_pvs[0])
+        self.assertListEquivalent([self.sysinfo.partitions[1]], tails)
+
+    def test_that_volume_can_be_child_of_raid_array(self):
+        self.sysinfo.partitions = [Partition("8 0 1000 sda".split(" ")),
+                                   Partition("8 1 1000 sda1".split(" "))]
+        self.sysinfo.raid_arrays = [RaidArray(("md0 sda1".split(" "), 1000))]
+        self.sysinfo.lvm_pvs = [LvmPhysicalVolume("/dev/md0 1000".split(" "))]
+        dg = DiskGraph(self.sysinfo)
+        tails = dg.tailsFor(self.sysinfo.lvm_pvs[0])
+        self.assertListEquivalent(self.sysinfo.raid_arrays, tails)
+
+class TestDiskGraphLvmVolumeGroup(Setup, unittest.TestCase):
+    def test_that_volume_group_is_child_of_physical_volume(self):
+        self.sysinfo.partitions = [Partition("8 0 1000 sda".split(" "))]
+        self.sysinfo.lvm_pvs = [LvmPhysicalVolume("/dev/sda 1000".split(" "))]
+        self.sysinfo.lvm_vgs = [LvmVolumeGroup(["group", "1000", ["/dev/sda"]])]
+        dg = DiskGraph(self.sysinfo)
+        tails = dg.tailsFor(self.sysinfo.lvm_vgs[0])
+        self.assertListEquivalent([self.sysinfo.lvm_pvs[0]], tails)
+
+    def test_that_volume_group_can_be_child_of_multiple_physical_volumes(self):
+        self.sysinfo.partitions = [Partition("8 0 1000 sda".split(" ")),
+                                   Partition("8 16 1000 sdb".split(" "))]
+        self.sysinfo.lvm_pvs = [LvmPhysicalVolume("/dev/sda 1000".split(" ")),
+                                LvmPhysicalVolume("/dev/sdb 1000".split(" "))]
+        self.sysinfo.lvm_vgs = [LvmVolumeGroup(["group", "1000", ["/dev/sda", "/dev/sdb"]])]
+        dg = DiskGraph(self.sysinfo)
+        tails = dg.tailsFor(self.sysinfo.lvm_vgs[0])
+        self.assertListEquivalent(self.sysinfo.lvm_pvs, tails)
+
+class TestDiskGraphLvmLogicalVolume(Setup, unittest.TestCase):
+    def test_that_logical_volume_is_child_of_volume_group(self):
+        self.sysinfo.partitions = [Partition("8 0 1000 sda".split(" "))]
+        self.sysinfo.lvm_pvs = [LvmPhysicalVolume("/dev/sda 1000".split(" "))]
+        self.sysinfo.lvm_vgs = [LvmVolumeGroup(["group", "1000", ["/dev/sda"]])]
+        self.sysinfo.lvm_lvs= [LvmLogicalVolume(["test", "group", "1000"])]
+        dg = DiskGraph(self.sysinfo)
+        tails = dg.tailsFor(self.sysinfo.lvm_lvs[0])
+        self.assertListEquivalent(self.sysinfo.lvm_vgs, tails)
+

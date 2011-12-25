@@ -48,12 +48,14 @@ class SimpleGraph(object):
             vertices = heads + vertices
 
     def headsFor(self, vertex):
-        """Return the heads of the given vertex, i.e. the vertices (if any) that
-        are on the opposite end of any edges originating in the given vertex."""
+        """Return a list of the heads of the given vertex, i.e. the vertices (if
+        any) that are on the opposite end of any edges originating in the given
+        vertex."""
         return self._graph.get(vertex, [])
 
     def tailsFor(self, vertex):
-        """Returns the tails of the given vertex, i.e. the vertices (if any) that
-        are on the opposite end of any edges terminating in the given vertex."""
+        """Return a list of the tails of the given vertex, i.e. the vertices (if
+        any) that are on the opposite end of any edges terminating in the given
+        vertex."""
         return [v for v in self._graph.keys() if vertex in self._graph[v]]
 

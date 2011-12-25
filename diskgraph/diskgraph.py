@@ -1,28 +1,12 @@
-#!/usr/bin/python
-
-import os, sys
-
-if __name__ == "__main__":
-    if os.geteuid() != 0:
-        sys.exit("Only root can run this script.\n")
-
-from subprocess import PIPE, Popen
-import re, inspect
+import re
 from sysinfo import *
 from sgraph import SimpleGraph
 import new
 
-suffixes = ["B", "kB", "MB", "GB", "TB", "PB"]
-def tosize(bytesize):
-    size = float(bytesize)
-    idx = 0
-    while size > 1024:
-        size /= 1024
-        idx += 1
-    return "%.2f%s" % (size, suffixes[idx])
-
 class Root(object):
     name = "root"
+    def __str__(self):
+        return self.name
 
 def is_disk(pp):
     return isinstance(pp, Partition) and re.match("^[hs]d[a-z]$", pp.name)
@@ -33,6 +17,9 @@ def is_partition_for(disk, part):
 hfs = {
     Partition: lambda self, tail: (isinstance(tail, Root) and is_disk(self)) or is_partition_for(tail, self),
     RaidArray: lambda self, tail: isinstance(tail, Partition) and tail.name in self.partition_names,
+    LvmPhysicalVolume: lambda self, tail: isinstance(tail, (Partition, RaidArray)) and tail.name == self.name,
+    LvmVolumeGroup: lambda self, tail: isinstance(tail, LvmPhysicalVolume) and tail.name in self.pv_names,
+    LvmLogicalVolume: lambda self, tail: isinstance(tail, LvmVolumeGroup) and self.vg_name == tail.name,
 }
 
 for klass in hfs.keys():
@@ -55,14 +42,7 @@ class DiskGraph(SimpleGraph):
         self._print(self.root, 0)
 
     def _print(self, v, level):
-        print "%s%s" % ("  " * level, v.name)
+        print "%s%s" % ("  " * level, str(v))
         for head in self.headsFor(v):
             self._print(head, level + 1)
-
-def main():
-    dg = DiskGraph(SysInfo())
-    dg.dump()
-
-if __name__ == "__main__":
-    main()
 

@@ -27,30 +27,34 @@ def open_file(f):
 def exec_cmd(args):
     return (re.split(" +", line.strip()) for line in subprocess.check_output(args).split("\n") if line != "")
 
-class Partition(object):
+class NamedObject(object):
+    def __str__(self):
+        return "%s: %s" % (self.__class__.__name__, self.name)
+
+class Partition(NamedObject):
     def __init__(self, line_parts):
         self.kernel_major_minor = (int(line_parts[0]), int(line_parts[1]))
         self.byte_size = int(line_parts[2]) * BLOCK_SIZE
         self.name = line_parts[3]
 
-class LvmPhysicalVolume(object):
+class LvmPhysicalVolume(NamedObject):
     def __init__(self, parts):
         self.name = parts[0].replace("/dev/", "")
         self.byte_size = int(parts[1])
 
-class LvmVolumeGroup(object):
+class LvmVolumeGroup(NamedObject):
     def __init__(self, parts):
         self.name = parts[0]
         self.byte_size = int(parts[1])
         self.pv_names = [name.replace("/dev/", "") for name in parts[2]]
 
-class LvmLogicalVolume(object):
+class LvmLogicalVolume(NamedObject):
     def __init__(self, parts):
         self.name = parts[0]
         self.vg_name = parts[1]
         self.byte_size = int(parts[2])
 
-class RaidArray(object):
+class RaidArray(NamedObject):
     def __init__(self, data):
         """([name, partition_names...], #blocks)"""
         arr, blocks = data
