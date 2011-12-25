@@ -24,7 +24,7 @@ class Root(object):
     name = "root"
 
 def is_disk(pp):
-    return isinstance(pp, Partition) and re.match("^(h|s)d[a-z]$", pp.name)
+    return isinstance(pp, Partition) and re.match("^[hs]d[a-z]$", pp.name)
 
 def is_partition_for(disk, part):
     return is_disk(disk) and isinstance(part, Partition) and re.match("^%s\\d+$" % re.escape(disk.name), part.name)
@@ -34,12 +34,14 @@ hfs = {
     Partition: lambda tail, p: is_partition_for(tail, p),
 }
 
-#def partition_is_head_for(tail, p):
-#    return (isinstance(tail, Root) and is_disk(p)) or is_partition_for(tail, p)
-
 class DiskGraph(SimpleGraph):
     def __init__(self, sysinfo):
-        self.pool = [sysinfo.partitions] + [sysinfo.raid_arrays] + [sysinfo.lvm_pvs] + [sysinfo.lvm_vgs] + [sysinfo.lvm_lvs]
+        self.pool = []
+        self.pool.extend(sysinfo.partitions)
+        self.pool.extend(sysinfo.raid_arrays)
+        self.pool.extend(sysinfo.lvm_pvs)
+        self.pool.extend(sysinfo.lvm_vgs)
+        self.pool.extend(sysinfo.lvm_lvs)
         SimpleGraph.__init__(self, self.headfinder, Root())
 
     def headfinder(self, v):

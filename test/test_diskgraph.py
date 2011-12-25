@@ -6,11 +6,43 @@ class dummy(object):
     pass
 
 class TestDiskGraph(unittest.TestCase):
-    #def test_graph_with_single_disk(self):
-    #    sysinfo = dummy()
-    #    sysinfo.partitions = [Partition("8 0 244198584 sda".split(" "))]
-    #    sysinfo.raid_arrays = sysinfo.lvm_pvs = sysinfo.lvm_vgs = sysinfo.lvm_lvs = []
-    #    dg = DiskGraph(sysinfo)
-    pass
+    def setUp(self):
+        sysinfo = dummy()
+        sysinfo.partitions = sysinfo.raid_arrays = sysinfo.lvm_pvs = sysinfo.lvm_vgs = sysinfo.lvm_lvs = []
+        self.sysinfo = sysinfo
 
+    def test_graph_with_single_disk(self):
+        self.sysinfo.partitions = [Partition("8 0 1000 sda".split(" "))]
+        dg = DiskGraph(self.sysinfo)
+        visited = [x.name for x in list(dg.visit(dg.root))]
+        self.assertEqual(["root", "sda"], visited)
+
+    def test_graph_with_single_ide_disk(self):
+        self.sysinfo.partitions = [Partition("3 0 1000 hda".split(" "))]
+        dg = DiskGraph(self.sysinfo)
+        visited = [x.name for x in list(dg.visit(dg.root))]
+        self.assertEqual(["root", "hda"], visited)
+
+    def test_that_mds_and_dms_are_ignored_as_root_level_disks(self):
+        self.sysinfo.partitions = [Partition("252 1 1000 dm-1".split(" ")),
+                                   Partition("9 1 1000 md1".split(" "))]
+        dg = DiskGraph(self.sysinfo)
+        visited = [x.name for x in list(dg.visit(dg.root))]
+        self.assertEqual(["root"], visited)
+
+    def test_graph_with_single_disk_and_partition(self):
+        self.sysinfo.partitions = [Partition("8 0 1000 sda".split(" ")),
+                                   Partition("8 1 1000 sda1".split(" "))]
+        dg = DiskGraph(self.sysinfo)
+        visited = [x.name for x in list(dg.visit(dg.root))]
+        self.assertEqual(["root", "sda", "sda1"], visited)
+
+    def test_that_partition_is_associated_with_right_disk(self):
+        self.sysinfo.partitions = [Partition("8 0 1000 sda".split(" ")),
+                                   Partition("8 16 1000 sdb".split(" ")),
+                                   Partition("8 1 1000 sda1".split(" "))]
+        dg = DiskGraph(self.sysinfo)
+        visited = [x.name for x in list(dg.visit(dg.root))]
+        print dg.headsFor(dg.root)
+        self.assertEqual(["root", "sda", "sda1", "sdb"], visited)
 
