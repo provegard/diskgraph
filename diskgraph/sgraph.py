@@ -28,25 +28,24 @@ class SimpleGraph(object):
         for v in self.visit(root):
             heads = self._headfinder(v)
             for h in heads:
+                self._graph[v].append(h)
                 if not h in self._graph.keys():
                     # not seen this one before
-                    self._graph[v].append(h)
                     self._graph[h] = []
 
     def visit(self, start): #, visitor):
         """Visit the graph starting at the given vertex. The visitor function
         will be called for each vertex. The graph is visited using the DFS
-        algorithm."""
+        algorithm and heads are visited left-to-right (i.e. first-to-last).
+        """
         visited = []
         vertices = [start]
         while vertices:
             v = vertices.pop(0)
             visited.append(v)
             yield v
-            for h in self.headsFor(v):
-                if h in visited:
-                    continue
-                vertices.insert(0, h)
+            heads = [h for h in self.headsFor(v) if not h in visited]
+            vertices = heads + vertices
 
     def headsFor(self, vertex):
         """Return the heads of the given vertex, i.e. the vertices (if any) that
