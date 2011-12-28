@@ -23,7 +23,7 @@ if __name__ == "__main__":
     if os.geteuid() != 0:
         sys.exit("Only root can run this script.\n")
 
-from diskgraph import DiskGraph
+from diskgraph import DiskGraph, FreeSpace
 from sysinfo import *
 import pydot
 
@@ -33,6 +33,7 @@ colors = {
     LvmPhysicalVolume: "chocolate",
     LvmVolumeGroup: "coral",
     LvmLogicalVolume: "mediumorchid1",
+    FreeSpace: ("red", "white"),
 }
 
 suffixes = ["B", "kB", "MB", "GB", "TB", "PB"]
@@ -50,32 +51,53 @@ def nn(node):
         s += "\\n%s" % (tosize(node.byte_size), )
     return s
 
+def get_color(node, c):
+    if isinstance(c, basestring):
+        return c
+    else:
+        return c(node)
+
 def get_fillcolor(node):
     c = colors.get(node.__class__)
-    col = None
     if c:
-        if isinstance(c, basestring):
-            col = c
-        else:
-            col = c(node)
-    return col
+        if isinstance(c, tuple):
+            # (fillcolor, fontcolor)
+            return get_color(node, c[0])
+        return get_color(node, c)
+
+def get_fontcolor(node):
+    c = colors.get(node.__class__)
+    if isinstance(c, tuple):
+        # (fillcolor, fontcolor)
+        return get_color(node, c[1])
 
 def style_dict(node):
     d = {}
-    fc = get_fillcolor(node)
-    if fc:
+    fillc = get_fillcolor(node)
+    if fillc:
         d["style"] = "filled"
-        d["fillcolor"] = fc
+        d["fillcolor"] = fillc
+    fontc = get_fontcolor(node)
+    if fontc:
+        d["fontcolor"] = fontc
+    d["label"] = nn(node)
     return d
 
 def main(fn):
     dg = DiskGraph(SysInfo())
     g = pydot.Dot("diskgraph", graph_type="digraph")
+    nodes = {}
     for (tail, head) in dg.visitEdges(dg.root):
-        hnode = pydot.Node(nn(head), **style_dict(head))
-        tnode = pydot.Node(nn(tail), **style_dict(tail))
-        g.add_node(hnode)
-        g.add_node(tnode)
+        hnode = nodes.get(head)
+        if not hnode:
+            hnode = pydot.Node(str(len(nodes)), **style_dict(head))
+            g.add_node(hnode)
+            nodes[head] = hnode
+        tnode = nodes.get(tail)
+        if not tnode:
+            tnode = pydot.Node(str(len(nodes)), **style_dict(tail))
+            g.add_node(tnode)
+            nodes[tail] = tnode
         g.add_edge(pydot.Edge(tnode, hnode))
     g.write_png(fn)
 
