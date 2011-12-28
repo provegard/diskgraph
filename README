@@ -1,0 +1,18 @@
+DiskGraph is a Python utility that creates a graph of how disks, partitions, etc.
+relate to each other in a Linux system. The following entities are supported:
+
+* Disks and partitions (hd/sd, read from /proc/partitions)
+* Raid (read from /proc/mdstat)
+* LVM (read from execution of pvs and lvs)
+
+Because the pvs and lvs commands must be run as root, this utility must as well.
+
+To run it (from the diskgraph directory):
+
+sudo ./dgmain diskgraph.png
+
+Since the only way to watc the output is to open the PNG file, a suggested usage
+on a server is:
+
+sudo ./dgmain /var/www/diskgraph.png
+
