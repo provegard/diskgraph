@@ -86,3 +86,11 @@ class TestSimpleGraph(unittest.TestCase):
         visited = list(graph.visitEdges(root))
         self.assertEqual([(root, 2), (2, root)], visited)
 
+    def test_that_head_can_be_added_for_vertex(self):
+        root = 1
+        headfinder = lambda x: [2] if x == root else []
+        graph = SimpleGraph(headfinder, root)
+        graph.addHead(root, 3)
+        self.assertTrue(3 in graph.headsFor(root))
+
+

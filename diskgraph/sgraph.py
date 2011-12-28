@@ -88,3 +88,11 @@ class SimpleGraph(object):
         vertex."""
         return [v for v in self._graph.keys() if vertex in self._graph[v]]
 
+    def addHead(self, vertex, head):
+        """Add a head for a given vertex. This effectively also adds an edge from
+        the vertex to the new head.
+        """
+        heads = self._graph[vertex]
+        heads.append(head)
+
+
