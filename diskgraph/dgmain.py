@@ -14,7 +14,7 @@ and LICENSE file).
 """
 
 __author__ = "Per Rovegård"
-__version__ = "1.0"
+__version__ = "1.1"
 __license__ = "BSD-3-Clause"
 
 import os, sys
