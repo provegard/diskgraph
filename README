@@ -1,3 +1,6 @@
+Overview
+========
+
 DiskGraph is a Python utility that creates a graph of how disks, partitions, etc.
 relate to each other in a Linux system. The following entities are supported:
 
@@ -7,12 +10,26 @@ relate to each other in a Linux system. The following entities are supported:
 
 Because the pvs and lvs commands must be run as root, this utility must as well.
 
-To run it (from the diskgraph directory):
+Disclaimer
+==========
 
-sudo ./dgmain diskgraph.png
+See the LICENSE file. The utility must be run as root; read the source code
+carefully before running it if you're uncertain as to what it does.
+
+Prerequisites
+=============
+
+pydot (python-pydot)
+
+Usage
+=====
+
+To run it:
+
+sudo diskgraph/dgmain.py diskgraph.png
 
 Since the only way to watc the output is to open the PNG file, a suggested usage
 on a server is:
 
-sudo ./dgmain /var/www/diskgraph.png
+sudo diskgraph/dgmain.py /var/www/diskgraph.png
 
