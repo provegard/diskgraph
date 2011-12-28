@@ -24,8 +24,16 @@ if __name__ == "__main__":
         sys.exit("Only root can run this script.\n")
 
 from diskgraph import DiskGraph
-from sysinfo import SysInfo
+from sysinfo import *
 import pydot
+
+colors = {
+    Partition: lambda p: "gold" if p.is_disk() else "chartreuse1",
+    RaidArray: "cadetblue",
+    LvmPhysicalVolume: "chocolate",
+    LvmVolumeGroup: "coral",
+    LvmLogicalVolume: "mediumorchid1",
+}
 
 suffixes = ["B", "kB", "MB", "GB", "TB", "PB"]
 def tosize(bytesize):
@@ -42,11 +50,34 @@ def nn(node):
         s += "\\n%s" % (tosize(node.byte_size), )
     return s
 
+def get_fillcolor(node):
+    c = colors.get(node.__class__)
+    col = None
+    if c:
+        if isinstance(c, basestring):
+            col = c
+        else:
+            col = c(node)
+    return col
+
+def style_dict(node):
+    d = {}
+    fc = get_fillcolor(node)
+    if fc:
+        d["style"] = "filled"
+        d["fillcolor"] = fc
+    return d
+
 def main(fn):
     dg = DiskGraph(SysInfo())
-    edges = [(nn(h), nn(t)) for (h, t) in dg.visitEdges(dg.root)]
-    graph = pydot.graph_from_edges(edges, directed=True)
-    graph.write_png(fn)
+    g = pydot.Dot("diskgraph", graph_type="digraph")
+    for (tail, head) in dg.visitEdges(dg.root):
+        hnode = pydot.Node(nn(head), **style_dict(head))
+        tnode = pydot.Node(nn(tail), **style_dict(tail))
+        g.add_node(hnode)
+        g.add_node(tnode)
+        g.add_edge(pydot.Edge(tnode, hnode))
+    g.write_png(fn)
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
