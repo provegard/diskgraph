@@ -23,11 +23,13 @@ __all__ = [
     "LvmVolumeGroup",
     "LvmLogicalVolume",
     "RaidArray",
+    "MountedFileSystem",
     "ProcPartitions",
     "Mdstat",
     "LvmPvs",
     "LvmVgs",
     "LvmLvs",
+    "Mount",
 ]
 
 BLOCK_SIZE = 1024
@@ -98,6 +100,19 @@ class RaidArray(NamedObject):
     def is_child_of(self, tail):
         return isinstance(tail, Partition) and tail.name in self.partition_names
 
+class MountedFileSystem(NamedObject):
+    def __init__(self, parts):
+        self.name = parts[5]
+        self.path = parts[0]
+        self.byte_size = int(parts[1])
+
+    def is_child_of(self, tail):
+        if isinstance(tail, (Partition, RaidArray)):
+            return "/dev/%s" % tail.name == self.path
+        if isinstance(tail, LvmLogicalVolume):
+            return "/dev/mapper/%s-%s" % (tail.vg_name, tail.name) == self.path
+        return False
+
 class SequenceBase(object):
     def __getitem__(self, index):
         return self._items[index]
@@ -140,6 +155,11 @@ class LvmLvs(SequenceBase):
         lines = list(exec_cmd("lvs --noheadings -o lv_name,vg_name,lv_size --units b --nosuffix".split(" ")))
         self._items = [LvmLogicalVolume(parts) for parts in lines]
 
+class Mount(SequenceBase):
+    def __init__(self):
+        lines = list(exec_cmd("df -P -B 1".split(" ")))[1:]
+        self._items = [MountedFileSystem(parts) for parts in lines]
+
 class SysInfo(object):
     def __init__(self):
         self.partitions = ProcPartitions()
@@ -147,4 +167,6 @@ class SysInfo(object):
         self.lvm_pvs = LvmPvs()
         self.lvm_vgs = LvmVgs()
         self.lvm_lvs = LvmLvs()
+        self.mounts = Mount()
+
 

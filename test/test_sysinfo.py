@@ -66,6 +66,69 @@ class TestSysInfoMdstat(unittest.TestCase):
         arr = self.md[0]
         self.assertEqual(250056605696, arr.byte_size)
 
+class TestSysInfoMount(unittest.TestCase):
+    @patch("subprocess.check_output")
+    def setUp(self, exec_mock):
+        exec_mock.return_value = ("Filesystem           1B-blocks      Used Available Use% Mounted on\n"
+                                  "/dev/sdk2            3897212928 2526269440 1212547072  68% /boot\n")
+        self.mounts = Mount()
+
+    def test_that_one_mounted_fs_is_found(self):
+        self.assertEqual(1, len(self.mounts))
+
+    def test_that_mounted_fs_is_of_right_type(self):
+        mfs = self.mounts[0]
+        self.assertIsInstance(mfs, MountedFileSystem)
+
+    def test_that_mounted_fs_contains_name(self):
+        mfs = self.mounts[0]
+        self.assertEqual("/boot", mfs.name)
+
+    def test_that_mounted_fs_contains_size(self):
+        mfs = self.mounts[0]
+        self.assertEqual(3897212928, mfs.byte_size)
+
+class TestMountedFileSystem(unittest.TestCase):
+    def test_that_mounted_fs_is_child_of_disk(self):
+        d = Partition("8 0 1000 sda".split(" "))
+        mfs = MountedFileSystem("/dev/sda 3897212928 2526269440 1212547072 68% /boot".split(" "))
+        self.assertTrue(mfs.is_child_of(d))
+
+    def test_that_mounted_fs_is_not_child_of_wrong_disk(self):
+        d = Partition("8 0 1000 sda".split(" "))
+        mfs = MountedFileSystem("/dev/sdb 3897212928 2526269440 1212547072 68% /boot".split(" "))
+        self.assertFalse(mfs.is_child_of(d))
+
+    def test_that_mounted_fs_is_child_of_partition(self):
+        p = Partition("8 1 1000 sda1".split(" "))
+        mfs = MountedFileSystem("/dev/sda1 3897212928 2526269440 1212547072 68% /boot".split(" "))
+        self.assertTrue(mfs.is_child_of(p))
+
+    def test_that_mounted_fs_is_child_of_raid_array(self):
+        r = RaidArray(("md1 /dev/sda1".split(" "), 1000))
+        mfs = MountedFileSystem("/dev/md1 3897212928 2526269440 1212547072 68% /boot".split(" "))
+        self.assertTrue(mfs.is_child_of(r))
+
+    def test_that_mounted_fs_is_child_of_lvm_lv_given_vg_matches(self):
+        lv = LvmLogicalVolume("small test 1000".split(" "))
+        mfs = MountedFileSystem("/dev/mapper/test-small 3897212928 2526269440 1212547072 68% /boot".split(" "))
+        self.assertTrue(mfs.is_child_of(lv))
+
+    def test_that_mounted_fs_is_not_child_of_lvm_lv_if_lv_mismatch(self):
+        lv = LvmLogicalVolume("big test 1000".split(" "))
+        mfs = MountedFileSystem("/dev/mapper/test-small 3897212928 2526269440 1212547072 68% /boot".split(" "))
+        self.assertFalse(mfs.is_child_of(lv))
+
+    def test_that_mounted_fs_is_not_child_of_lvm_lv_if_vg_mismatch(self):
+        lv = LvmLogicalVolume("small blob 1000".split(" "))
+        mfs = MountedFileSystem("/dev/mapper/test-small 3897212928 2526269440 1212547072 68% /boot".split(" "))
+        self.assertFalse(mfs.is_child_of(lv))
+
+    def test_that_mounted_fs_is_not_child_of_root(self):
+        r = Root()
+        mfs = MountedFileSystem("/dev/mapper/test-small 3897212928 2526269440 1212547072 68% /boot".split(" "))
+        self.assertFalse(mfs.is_child_of(r))
+
 class TestSysInfoLvmPvs(unittest.TestCase):
     @patch("subprocess.check_output")
     def setUp(self, exec_mock):

@@ -8,11 +8,18 @@ class dummy(object):
 class Setup(object):
     def setUp(self):
         sysinfo = dummy()
-        sysinfo.partitions = sysinfo.raid_arrays = sysinfo.lvm_pvs = sysinfo.lvm_vgs = sysinfo.lvm_lvs = []
+        sysinfo.partitions = sysinfo.raid_arrays = sysinfo.lvm_pvs = sysinfo.lvm_vgs = sysinfo.lvm_lvs = sysinfo.mounts = []
         self.sysinfo = sysinfo
 
     def assertListEquivalent(self, l1, l2):
         self.assertEqual(sorted(l1), sorted(l2))
+
+class TestMountedFileSystems(Setup, unittest.TestCase):
+    def test_graph_with_disk_and_fs(self):
+        self.sysinfo.partitions = [Partition("8 0 1000 sda".split(" "))]
+        self.sysinfo.mounts = [MountedFileSystem("/dev/sda 3897212928 2526269440 1212547072 68% /boot".split(" "))]
+        dg = DiskGraph(self.sysinfo)
+        self.assertEqual(self.sysinfo.mounts, dg.headsFor(self.sysinfo.partitions[0]))
 
 class TestDiskGraphDiskAndPartitions(Setup, unittest.TestCase):
     def test_graph_with_single_disk(self):

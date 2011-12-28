@@ -34,6 +34,7 @@ colors = {
     LvmVolumeGroup: "coral",
     LvmLogicalVolume: "mediumorchid1",
     FreeSpace: ("red", "white"),
+    MountedFileSystem: ("navy", "white"),
 }
 
 suffixes = ["B", "kB", "MB", "GB", "TB", "PB"]
