@@ -18,10 +18,24 @@ __version__ = "1.1"
 __license__ = "BSD-3-Clause"
 
 import os, sys
+from check import checker
 
-if __name__ == "__main__":
+if not checker.has_partitions():
+    sys.exit("The file /proc/partitions must exist.\n")
+
+if not checker.has_df_command():
+    print "No df command found - mounted file systems won't be included."
+
+if not checker.has_mdstat():
+    print "No /proc/mdstat file - software RAID arrays won't be included."
+
+if not checker.has_lvm_commands():
+    print "No LVM commands founds - LVM entities won't be included."
+
+# Currently, only the LVM commands require root privileges.
+if checker.has_lvm_commands() and __name__ == "__main__":
     if os.geteuid() != 0:
-        sys.exit("Only root can run this script.\n")
+        sys.exit("Only root can run this script, because the LVM commands need that.\n")
 
 from diskgraph import DiskGraph, FreeSpace
 from sysinfo import *

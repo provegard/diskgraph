@@ -1,8 +1,18 @@
 import re
 import unittest
 from diskgraph.sysinfo import *
-from mock import patch, MagicMock
+from mock import patch, MagicMock, Mock
 from cStringIO import StringIO
+from diskgraph.check import Checker
+from subprocess import CalledProcessError
+
+def checker_mock(b):
+    c = Mock(spec=Checker)
+    c.has_mdstat.return_value = b
+    c.has_df_command.return_value = b
+    c.has_partitions.return_value = b
+    c.has_lvm_commands.return_value = b
+    return c
 
 def splitkeepsep(s, sep):
     return reduce(lambda acc, i: acc[:-1] + [acc[-1] + i] if i == sep else acc + [i], re.split("(%s)" % re.escape(sep), s), [])
@@ -13,6 +23,7 @@ def confopenmock(mock, text):
     handle.__iter__.return_value = iter(splitkeepsep(text, "\n"))
 
 class TestSysInfoProcPartitions(unittest.TestCase):
+    @patch("diskgraph.sysinfo.checker", checker_mock(True))
     @patch("diskgraph.sysinfo.open", create=True)
     def setUp(self, open_mock):
         text = "major minor  #blocks  name\n\n   8        0  244198584 sda\n"
@@ -39,6 +50,7 @@ class TestSysInfoProcPartitions(unittest.TestCase):
         self.assertEqual(250059350016, part.byte_size)
 
 class TestSysInfoMdstat(unittest.TestCase):
+    @patch("diskgraph.sysinfo.checker", checker_mock(True))
     @patch("diskgraph.sysinfo.open", create=True)
     def setUp(self, open_mock):
         text = ("Personalities : [raid1] [raid6] [raid5] [raid4] [linear] [multipath] [raid0] [raid10]\n"
@@ -67,6 +79,7 @@ class TestSysInfoMdstat(unittest.TestCase):
         self.assertEqual(250056605696, arr.byte_size)
 
 class TestSysInfoMount(unittest.TestCase):
+    @patch("diskgraph.sysinfo.checker", checker_mock(True))
     @patch("subprocess.check_output")
     def setUp(self, exec_mock):
         exec_mock.return_value = ("Filesystem           1B-blocks      Used Available Use% Mounted on\n"
@@ -130,6 +143,7 @@ class TestMountedFileSystem(unittest.TestCase):
         self.assertFalse(mfs.is_child_of(r))
 
 class TestSysInfoLvmPvs(unittest.TestCase):
+    @patch("diskgraph.sysinfo.checker", checker_mock(True))
     @patch("subprocess.check_output")
     def setUp(self, exec_mock):
         exec_mock.return_value = "  /dev/md0   1500310929408\n"
@@ -151,6 +165,7 @@ class TestSysInfoLvmPvs(unittest.TestCase):
         self.assertEqual(1500310929408, pv.byte_size)
 
 class TestSysInfoLvmVgs(unittest.TestCase):
+    @patch("diskgraph.sysinfo.checker", checker_mock(True))
     @patch("subprocess.check_output")
     def setUp(self, exec_mock):
         exec_mock.return_value = ("  backup  700146778112 /dev/md1\n"
@@ -178,6 +193,7 @@ class TestSysInfoLvmVgs(unittest.TestCase):
         self.assertListEqual(["md1", "md2"], vg.pv_names)
 
 class TestSysInfoLvmLvs(unittest.TestCase):
+    @patch("diskgraph.sysinfo.checker", checker_mock(True))
     @patch("subprocess.check_output")
     def setUp(self, exec_mock):
         exec_mock.return_value = "  homes   backup   21474836480\n"
@@ -201,7 +217,7 @@ class TestSysInfoLvmLvs(unittest.TestCase):
     def test_that_lvm_logical_volume_contains_volume_group_name(self):
         lv = self.lvs[0]
         self.assertEqual("backup", lv.vg_name)
-    
+
 class TestPartition(unittest.TestCase):
     def test_that_hd_without_number_is_disk(self):
         p = Partition("3 0 1000 hda".split(" "))
@@ -313,4 +329,32 @@ class RaidArrayTest(unittest.TestCase):
         p = Partition("8 1 1000 /dev/sda1".split(" "))
         r = RaidArray(("md1 /dev/sda1".split(" "), 1000))
         self.assertTrue(r.is_child_of(p))
+
+@patch("diskgraph.sysinfo.checker", checker_mock(False))
+class MissingFileOrCommandTest(unittest.TestCase):
+    @patch("subprocess.check_output")
+    def test_that_no_lvm_physical_volumes_are_found_if_lvm_commands_dont_exist(self, co_mock):
+        co_mock.side_effect = CalledProcessError(1, "pvs")
+        self.assertEqual(0, len(LvmPvs()))
+
+    @patch("subprocess.check_output")
+    def test_that_no_lvm_logical_volums_are_found_if_lvm_commands_dont_exist(self, co_mock):
+        co_mock.side_effect = CalledProcessError(1, "lvs")
+        self.assertEqual(0, len(LvmLvs()))
+
+    @patch("subprocess.check_output")
+    def test_that_no_lvm_volume_groups_are_found_if_lvm_commands_dont_exist(self, co_mock):
+        co_mock.side_effect = CalledProcessError(1, "vgs")
+        self.assertEqual(0, len(LvmVgs()))
+
+    @patch("diskgraph.sysinfo.open", create=True)
+    def test_that_no_arrays_are_found_if_mdstat_file_doesnt_exist(self, open_mock):
+        open_mock.side_effect = IOError
+        self.assertEqual(0, len(Mdstat()))
+
+    @patch("subprocess.check_output")
+    def test_that_no_mounted_fs_are_found_if_df_command_doesnt_exist(self, co_mock):
+        co_mock.side_effect = CalledProcessError(1, "df")
+        self.assertEqual(0, len(Mount()))
+    
 

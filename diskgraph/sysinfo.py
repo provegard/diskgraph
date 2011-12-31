@@ -14,6 +14,7 @@ __license__ = "BSD-3-Clause"
 
 import subprocess
 import re
+from check import checker
 
 __all__ = [
     "SysInfo",
@@ -129,35 +130,45 @@ class ProcPartitions(SequenceBase):
 
 class Mdstat(SequenceBase):
     def __init__(self):
-        lines = [line for line in open_file("/proc/mdstat")]
-        info = [[i[0]] + [j[:j.find("[")] for j in i[4:] if re.match(".+\\[\\d+\\](\\([A-Z]\\))*", j)] for i in lines if i[0].startswith("md")]
-        sizes = [int(line[0]) for line in lines if "blocks" in line]
-        self._items = [RaidArray(arr) for arr in zip(info, sizes)]
+        if checker.has_mdstat():
+            lines = [line for line in open_file("/proc/mdstat")]
+            info = [[i[0]] + [j[:j.find("[")] for j in i[4:] if re.match(".+\\[\\d+\\](\\([A-Z]\\))*", j)] for i in lines if i[0].startswith("md")]
+            sizes = [int(line[0]) for line in lines if "blocks" in line]
+            self._items = [RaidArray(arr) for arr in zip(info, sizes)]
+        else:
+            self._items = []
 
 class LvmPvs(SequenceBase):
     def __init__(self):
-        lines = list(exec_cmd("pvs --noheadings -o pv_name,pv_size --units b --nosuffix".split(" ")))
+        lines = []
+        if checker.has_lvm_commands():
+            lines = list(exec_cmd("pvs --noheadings -o pv_name,pv_size --units b --nosuffix".split(" ")))
         self._items = [LvmPhysicalVolume(parts) for parts in lines]
 
 class LvmVgs(SequenceBase):
     def __init__(self):
-        lines = list(exec_cmd("vgs --noheadings -o vg_name,vg_size,pv_name --units b --nosuffix".split(" ")))
         vgs = []
-        for vg in lines:
-            if vgs and vgs[-1][0] == vg[0]:
-                vgs[-1][2].append(vg[2])
-                continue
-            vgs.append([vg[0], vg[1], [vg[2]]])
+        if checker.has_lvm_commands():
+            lines = list(exec_cmd("vgs --noheadings -o vg_name,vg_size,pv_name --units b --nosuffix".split(" ")))
+            for vg in lines:
+                if vgs and vgs[-1][0] == vg[0]:
+                    vgs[-1][2].append(vg[2])
+                    continue
+                vgs.append([vg[0], vg[1], [vg[2]]])
         self._items = [LvmVolumeGroup(vg) for vg in vgs]
 
 class LvmLvs(SequenceBase):
     def __init__(self):
-        lines = list(exec_cmd("lvs --noheadings -o lv_name,vg_name,lv_size --units b --nosuffix".split(" ")))
+        lines = []
+        if checker.has_lvm_commands():
+            lines = list(exec_cmd("lvs --noheadings -o lv_name,vg_name,lv_size --units b --nosuffix".split(" ")))
         self._items = [LvmLogicalVolume(parts) for parts in lines]
 
 class Mount(SequenceBase):
     def __init__(self):
-        lines = list(exec_cmd("df -P -B 1".split(" ")))[1:]
+        lines = []
+        if checker.has_df_command():
+            lines = list(exec_cmd("df -P -B 1".split(" ")))[1:]
         self._items = [MountedFileSystem(parts) for parts in lines]
 
 class SysInfo(object):
