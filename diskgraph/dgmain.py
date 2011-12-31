@@ -29,6 +29,9 @@ if not checker.has_df_command():
 if not checker.has_mdstat():
     print "No /proc/mdstat file - software RAID arrays won't be included."
 
+if not checker.has_swaps():
+    print "No /proc/swaps file - swap areas won't be included."
+
 if not checker.has_lvm_commands():
     print "No LVM commands founds - LVM entities won't be included."
 
@@ -49,6 +52,7 @@ colors = {
     LvmLogicalVolume: "mediumorchid1",
     FreeSpace: ("red", "white"),
     MountedFileSystem: ("navy", "white"),
+    SwapArea: "mediumslateblue",
 }
 
 suffixes = ["B", "kB", "MB", "GB", "TB", "PB"]

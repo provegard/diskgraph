@@ -12,6 +12,7 @@ def checker_mock(b):
     c.has_df_command.return_value = b
     c.has_partitions.return_value = b
     c.has_lvm_commands.return_value = b
+    c.has_swaps.return_value = b
     return c
 
 def splitkeepsep(s, sep):
@@ -78,6 +79,30 @@ class TestSysInfoMdstat(unittest.TestCase):
         arr = self.md[0]
         self.assertEqual(250056605696, arr.byte_size)
 
+class TestSysInfoSwaps(unittest.TestCase):
+    @patch("diskgraph.sysinfo.checker", checker_mock(True))
+    @patch("diskgraph.sysinfo.open", create=True)
+    def setUp(self, open_mock):
+        text = ("Filename                                Type            Size    Used    Priority\n"
+                "/dev/sda2                               partition       497660  0       -1\n")
+        confopenmock(open_mock, text)
+        self.swaps = Swaps()
+
+    def test_that_one_swap_area_is_found(self):
+        self.assertEqual(1, len(self.swaps))
+
+    def test_that_swap_is_of_right_type(self):
+        swap = self.swaps[0]
+        self.assertIsInstance(swap, SwapArea)
+
+    def test_that_swap_area_contains_name(self):
+        swap = self.swaps[0]
+        self.assertEqual("sda2", swap.name)
+
+    def test_that_swap_area_contains_size(self):
+        swap = self.swaps[0]
+        self.assertEqual(509603840, swap.byte_size)
+
 class TestSysInfoMount(unittest.TestCase):
     @patch("diskgraph.sysinfo.checker", checker_mock(True))
     @patch("subprocess.check_output")
@@ -100,6 +125,12 @@ class TestSysInfoMount(unittest.TestCase):
     def test_that_mounted_fs_contains_size(self):
         mfs = self.mounts[0]
         self.assertEqual(3897212928, mfs.byte_size)
+
+class TestSwapArea(unittest.TestCase):
+    def test_that_swap_area_is_child_of_partition(self):
+        p = Partition("8 2 497660 sda2".split(" "))
+        sa = SwapArea("/dev/sda2 partition 497660 0 -1".split(" "))
+        self.assertTrue(sa.is_child_of(p))
 
 class TestMountedFileSystem(unittest.TestCase):
     def test_that_mounted_fs_is_child_of_disk(self):
@@ -357,4 +388,9 @@ class MissingFileOrCommandTest(unittest.TestCase):
         co_mock.side_effect = CalledProcessError(1, "df")
         self.assertEqual(0, len(Mount()))
     
+    @patch("diskgraph.sysinfo.open", create=True)
+    def test_that_no_swap_areas_are_found_if_swaps_file_doesnt_exist(self, open_mock):
+        open_mock.side_effect = IOError
+        self.assertEqual(0, len(Swaps()))
+
 

@@ -27,6 +27,7 @@ def cmd_exists(cmd):
 
 class Checker(object):
     def __init__(self):
+        self._has_swaps = file_exists("/proc/swaps")
         self._has_partitions = file_exists("/proc/partitions")
         self._has_mdstat = file_exists("/proc/mdstat")
         self._has_lvm_commands = cmd_exists("pvs") and cmd_exists("vgs") and cmd_exists("lvs")
@@ -43,6 +44,9 @@ class Checker(object):
 
     def has_df_command(self):
         return self._has_df_command
+
+    def has_swaps(self):
+        return self._has_swaps
 
 try:
     checker

@@ -33,6 +33,7 @@ class DiskGraph(SimpleGraph):
         self.pool.extend(sysinfo.lvm_vgs)
         self.pool.extend(sysinfo.lvm_lvs)
         self.pool.extend(sysinfo.mounts)
+        self.pool.extend(sysinfo.swaps)
         SimpleGraph.__init__(self, self.headfinder, Root())
 
     def headfinder(self, v):

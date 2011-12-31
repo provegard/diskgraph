@@ -25,22 +25,24 @@ __all__ = [
     "LvmLogicalVolume",
     "RaidArray",
     "MountedFileSystem",
+    "SwapArea",
     "ProcPartitions",
     "Mdstat",
     "LvmPvs",
     "LvmVgs",
     "LvmLvs",
     "Mount",
+    "Swaps",
 ]
 
 BLOCK_SIZE = 1024
 
 def open_file(f):
     with open(f) as fd:
-        return [re.split(" +", line.strip()) for line in fd if line != ""]
+        return [re.split("\\s+", line.strip()) for line in fd if line != ""]
 
 def exec_cmd(args):
-    return (re.split(" +", line.strip()) for line in subprocess.check_output(args).split("\n") if line != "")
+    return (re.split("\\s+", line.strip()) for line in subprocess.check_output(args).split("\n") if line != "")
 
 class NamedObject(object):
     def __str__(self):
@@ -114,6 +116,16 @@ class MountedFileSystem(NamedObject):
             return "/dev/mapper/%s-%s" % (tail.vg_name, tail.name) == self.path
         return False
 
+class SwapArea(NamedObject):
+    def __init__(self, parts):
+        self.name = parts[0].replace("/dev/", "")
+        self.byte_size = int(parts[2]) * BLOCK_SIZE
+
+    def is_child_of(self, tail):
+        if isinstance(tail, Partition):
+            return tail.name == self.name
+        return False
+
 class SequenceBase(object):
     def __getitem__(self, index):
         return self._items[index]
@@ -171,6 +183,13 @@ class Mount(SequenceBase):
             lines = list(exec_cmd("df -P -B 1".split(" ")))[1:]
         self._items = [MountedFileSystem(parts) for parts in lines]
 
+class Swaps(SequenceBase):
+    def __init__(self):
+        lines = []
+        if checker.has_swaps():
+            lines = [line for line in open_file("/proc/swaps")][1:]
+        self._items = [SwapArea(parts) for parts in lines]
+
 class SysInfo(object):
     def __init__(self):
         self.partitions = ProcPartitions()
@@ -179,5 +198,5 @@ class SysInfo(object):
         self.lvm_vgs = LvmVgs()
         self.lvm_lvs = LvmLvs()
         self.mounts = Mount()
-
+        self.swaps = Swaps()
 
