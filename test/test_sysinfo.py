@@ -133,15 +133,10 @@ class TestSwapArea(unittest.TestCase):
         self.assertTrue(sa.is_child_of(p))
 
 class TestMountedFileSystem(unittest.TestCase):
-    def test_that_mounted_fs_is_child_of_disk(self):
-        d = Partition("8 0 1000 sda".split(" "))
-        mfs = MountedFileSystem("/dev/sda 3897212928 2526269440 1212547072 68% /boot".split(" "))
-        self.assertTrue(mfs.is_child_of(d))
-
-    def test_that_mounted_fs_is_not_child_of_wrong_disk(self):
-        d = Partition("8 0 1000 sda".split(" "))
-        mfs = MountedFileSystem("/dev/sdb 3897212928 2526269440 1212547072 68% /boot".split(" "))
-        self.assertFalse(mfs.is_child_of(d))
+    def test_that_mounted_fs_is_not_child_of_wrong_partition(self):
+        p = Partition("8 1 1000 sda1".split(" "))
+        mfs = MountedFileSystem("/dev/sda2 3897212928 2526269440 1212547072 68% /boot".split(" "))
+        self.assertFalse(mfs.is_child_of(p))
 
     def test_that_mounted_fs_is_child_of_partition(self):
         p = Partition("8 1 1000 sda1".split(" "))

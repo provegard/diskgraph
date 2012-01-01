@@ -22,11 +22,11 @@ class TestSwapAreas(Setup, unittest.TestCase):
         self.assertEqual(self.sysinfo.swaps, dg.headsFor(self.sysinfo.partitions[1]))
 
 class TestMountedFileSystems(Setup, unittest.TestCase):
-    def test_graph_with_disk_and_fs(self):
-        self.sysinfo.partitions = [Partition("8 0 1000 sda".split(" "))]
-        self.sysinfo.mounts = [MountedFileSystem("/dev/sda 3897212928 2526269440 1212547072 68% /boot".split(" "))]
+    def test_graph_with_partition_and_fs(self):
+        self.sysinfo.partitions = [Partition("8 0 1000 sda".split(" ")), Partition("8 1 1000 sda1".split(" "))]
+        self.sysinfo.mounts = [MountedFileSystem("/dev/sda1 3897212928 2526269440 1212547072 68% /boot".split(" "))]
         dg = DiskGraph(self.sysinfo)
-        self.assertEqual(self.sysinfo.mounts, dg.headsFor(self.sysinfo.partitions[0]))
+        self.assertEqual(self.sysinfo.mounts, dg.headsFor(self.sysinfo.partitions[1]))
 
 class TestDiskGraphDiskAndPartitions(Setup, unittest.TestCase):
     def test_graph_with_single_disk(self):
