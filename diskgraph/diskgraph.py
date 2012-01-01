@@ -55,3 +55,8 @@ class DiskGraph(SimpleGraph):
         for head in self.headsFor(v):
             self._print(head, level + 1)
 
+if __name__ == "__main__":
+    import sys
+    print "Run dgmain.py instead!\n"
+    sys.exit(1)
+

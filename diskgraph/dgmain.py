@@ -104,6 +104,7 @@ def style_dict(node):
 
 def main(fn):
     dg = DiskGraph(SysInfo())
+    print "Graph contains %d entities." % (dg.order - 1, )
     g = pydot.Dot("diskgraph", graph_type="digraph")
     nodes = {}
     for (tail, head) in dg.visitEdges(dg.root):
@@ -118,7 +119,10 @@ def main(fn):
             g.add_node(tnode)
             nodes[tail] = tnode
         g.add_edge(pydot.Edge(tnode, hnode))
+
+    print "Writing PNG image to %s..." % fn
     g.write_png(fn)
+    print "All done!"
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
