@@ -424,3 +424,24 @@ class TestFreeSpace(unittest.TestCase):
         expanded = parts[0].expand(parts)
         self.assertFalse(FreeSpace in [e.__class__ for e in expanded])
 
+class TestToString(unittest.TestCase):
+    def test_that_byte_size_is_optional(self):
+        vg = LvmVolumeGroup("test 209715200 /dev/sda1 157286400".split(" "))
+        del vg.byte_size # hack
+        self.assertEqual("LvmVolumeGroup\ntest", str(vg))
+
+    def test_that_type_name_and_size_are_included(self):
+        vg = LvmVolumeGroup("test 209715200 /dev/sda1 157286400".split(" "))
+        self.assertEqual("LvmVolumeGroup\ntest\n200.00MB", str(vg))
+
+    def test_that_disk_has_custom_type(self):
+        disk = Partition("8 0 204800 sda".split(" "))
+        self.assertEqual("Disk\nsda\n200.00MB", str(disk))
+
+    def test_that_free_space_has_custom_tostring(self):
+        fs = FreeSpace(104857600)
+        self.assertEqual("Free space\n100.00MB", str(fs))
+    
+    def test_that_root_has_custom_tostring(self):
+        r = Root()
+        self.assertEqual("Root", str(r))

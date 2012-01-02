@@ -55,20 +55,8 @@ colors = {
     SwapArea: "mediumslateblue",
 }
 
-suffixes = ["B", "kB", "MB", "GB", "TB", "PB"]
-def tosize(bytesize):
-    size = float(bytesize)
-    idx = 0
-    while size > 1024:
-        size /= 1024
-        idx += 1
-    return "%.2f%s" % (size, suffixes[idx])
-
 def nn(node):
-    s = "%s\\n%s" % (node.__class__.__name__, node.name)
-    if hasattr(node, "byte_size"):
-        s += "\\n%s" % (tosize(node.byte_size), )
-    return s
+    return str(node).replace("\n", "\\n")
 
 def get_color(node, c):
     if isinstance(c, basestring):

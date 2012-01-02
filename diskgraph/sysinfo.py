@@ -39,9 +39,24 @@ def open_file(f):
 def exec_cmd(args):
     return (re.split("\\s+", line.strip()) for line in subprocess.check_output(args).split("\n") if line != "")
 
+suffixes = ["B", "kB", "MB", "GB", "TB", "PB"]
+def tosize(bytesize):
+    size = float(bytesize)
+    idx = 0
+    while size > 1024:
+        size /= 1024
+        idx += 1
+    return "%.2f%s" % (size, suffixes[idx])
+
 class SysObject(object):
     def __str__(self):
-        return "%s: %s" % (self.__class__.__name__, self.name)
+        s = "%s\n%s" % (self.gettypename(), self.name)
+        if hasattr(self, "byte_size"):
+            s += "\n%s" % tosize(self.byte_size)
+        return s
+
+    def gettypename(self):
+        return self.__class__.__name__
 
     def expand(self, candidates):
         return [c for c in candidates if c.is_child_of(self)]
@@ -56,6 +71,9 @@ class SysObject(object):
 class Root(SysObject):
     name = "root"
 
+    def __str__(self):
+        return "Root"
+
 class FreeSpace(SysObject):
     name = "free"
     def __init__(self, size):
@@ -65,11 +83,17 @@ class FreeSpace(SysObject):
     def is_relevant(size):
         return size >= FREE_SPACE_LIMIT
 
+    def __str__(self):
+        return "Free space\n%s" % tosize(self.byte_size)
+
 class Partition(SysObject):
     def __init__(self, line_parts):
         self.kernel_major_minor = (int(line_parts[0]), int(line_parts[1]))
         self.byte_size = int(line_parts[2]) * BLOCK_SIZE
         self.name = line_parts[3]
+
+    def gettypename(self):
+        return "Disk" if self.is_disk() else "Partition"
 
     def is_disk(self):
         return re.match("^[hs]d[a-z]$", self.name)
