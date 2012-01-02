@@ -20,6 +20,7 @@ __license__ = "BSD-3-Clause"
 import os, sys
 from check import checker
 from diskgraph import DiskGraph
+from sysinfo import SysInfo
 
 if not checker.has_partitions():
     sys.exit("The file /proc/partitions must exist.\n")
@@ -41,73 +42,10 @@ if checker.has_lvm_commands() and __name__ == "__main__":
     if os.geteuid() != 0:
         sys.exit("Only root can run this script, because the LVM commands need that.\n")
 
-from sysinfo import *
-import pydot
-
-colors = {
-    Partition: lambda p: "gold" if p.is_disk() else "chartreuse1",
-    RaidArray: "cadetblue",
-    LvmPhysicalVolume: "chocolate",
-    LvmVolumeGroup: "coral",
-    LvmLogicalVolume: "mediumorchid1",
-    MountedFileSystem: ("navy", "white"),
-    FreeSpace: ("red", "white"),
-    SwapArea: "mediumslateblue",
-}
-
-def nn(node):
-    return str(node).replace("\n", "\\n")
-
-def get_color(node, c):
-    if isinstance(c, basestring):
-        return c
-    else:
-        return c(node)
-
-def get_fillcolor(node):
-    c = colors.get(node.__class__)
-    if c:
-        if isinstance(c, tuple):
-            # (fillcolor, fontcolor)
-            return get_color(node, c[0])
-        return get_color(node, c)
-
-def get_fontcolor(node):
-    c = colors.get(node.__class__)
-    if isinstance(c, tuple):
-        # (fillcolor, fontcolor)
-        return get_color(node, c[1])
-
-def style_dict(node):
-    d = {}
-    fillc = get_fillcolor(node)
-    if fillc:
-        d["style"] = "filled"
-        d["fillcolor"] = fillc
-    fontc = get_fontcolor(node)
-    if fontc:
-        d["fontcolor"] = fontc
-    d["label"] = nn(node)
-    return d
-
 def main(fn):
     dg = DiskGraph(SysInfo())
     print "Graph contains %d entities." % (dg.order - 1, )
-    g = pydot.Dot("diskgraph", graph_type="digraph")
-    nodes = {}
-    for (tail, head) in dg.visitEdges(dg.root):
-        hnode = nodes.get(head)
-        if not hnode:
-            hnode = pydot.Node(str(len(nodes)), **style_dict(head))
-            g.add_node(hnode)
-            nodes[head] = hnode
-        tnode = nodes.get(tail)
-        if not tnode:
-            tnode = pydot.Node(str(len(nodes)), **style_dict(tail))
-            g.add_node(tnode)
-            nodes[tail] = tnode
-        g.add_edge(pydot.Edge(tnode, hnode))
-
+    g = dg.todot()
     print "Writing PNG image to %s..." % fn
     g.write_png(fn)
     print "All done!"
