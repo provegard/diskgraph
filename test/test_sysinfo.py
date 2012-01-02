@@ -388,4 +388,25 @@ class MissingFileOrCommandTest(unittest.TestCase):
         open_mock.side_effect = IOError
         self.assertEqual(0, len(SwapArea.generate()))
 
+class TestFreeSpace(unittest.TestCase):
+    def test_that_disk_expands_free_space(self):
+        parts = [Partition("8 0 204800 sda".split(" ")),
+                 Partition("8 1 51200 sda1".split(" "))]
+        disk = parts[0]
+        expanded = disk.expand(parts)
+        self.assertTrue(FreeSpace in [e.__class__ for e in expanded])
 
+    def test_that_disk_calculates_free_space_correctly(self):
+        parts = [Partition("8 0 204800 sda".split(" ")),
+                 Partition("8 1 51200 sda1".split(" "))]
+        disk = parts[0]
+        expanded = disk.expand(parts)
+        fs = [e for e in disk.expand(parts) if isinstance(e, FreeSpace)][0]
+        self.assertEqual(157286400, fs.byte_size)
+
+    def test_that_disk_doesnt_expand_small_free_space(self):
+        parts = [Partition("8 0 204800 sda".split(" ")),
+                 Partition("8 1 103424 sda1".split(" "))]
+        disk = parts[0]
+        expanded = disk.expand(parts)
+        self.assertFalse(FreeSpace in [e.__class__ for e in expanded])

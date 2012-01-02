@@ -51,6 +51,7 @@ colors = {
     LvmVolumeGroup: "coral",
     LvmLogicalVolume: "mediumorchid1",
     MountedFileSystem: ("navy", "white"),
+    FreeSpace: ("red", "white"),
     SwapArea: "mediumslateblue",
 }
 

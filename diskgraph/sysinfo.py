@@ -26,9 +26,11 @@ __all__ = [
     "RaidArray",
     "MountedFileSystem",
     "SwapArea",
+    "FreeSpace",
 ]
 
 BLOCK_SIZE = 1024
+FREE_SPACE_LIMIT = 100 * 1024 * 1024
 
 def open_file(f):
     with open(f) as fd:
@@ -54,6 +56,15 @@ class SysObject(object):
 class Root(SysObject):
     name = "root"
 
+class FreeSpace(SysObject):
+    name = "free"
+    def __init__(self, size):
+        self.byte_size = size
+
+    @staticmethod
+    def is_relevant(size):
+        return size >= FREE_SPACE_LIMIT
+
 class Partition(SysObject):
     def __init__(self, line_parts):
         self.kernel_major_minor = (int(line_parts[0]), int(line_parts[1]))
@@ -72,6 +83,15 @@ class Partition(SysObject):
     @classmethod
     def generate(cls):
         return [Partition(p) for p in list(open_file("/proc/partitions"))[2:]]
+
+    def expand(self, candidates):
+        result = super(Partition, self).expand(candidates)
+        if self.is_disk():
+            tot_child_size = sum([c.byte_size for c in result])
+            free = self.byte_size - tot_child_size
+            if FreeSpace.is_relevant(free):
+                result.append(FreeSpace(free))
+        return result
 
 class LvmPhysicalVolume(SysObject):
     def __init__(self, parts):
