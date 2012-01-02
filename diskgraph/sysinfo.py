@@ -113,20 +113,27 @@ class LvmVolumeGroup(SysObject):
         self.name = parts[0]
         self.byte_size = int(parts[1])
         self.pv_names = [name.replace("/dev/", "") for name in parts[2]]
+        self.free_space = int(parts[3])
 
     def is_child_of(self, tail):
         return isinstance(tail, LvmPhysicalVolume) and tail.name in self.pv_names
+
+    def expand(self, candidates):
+        result = super(LvmVolumeGroup, self).expand(candidates)
+        if FreeSpace.is_relevant(self.free_space):
+            result.append(FreeSpace(self.free_space))
+        return result
 
     @classmethod
     def generate(cls):
         vgs = []
         if checker.has_lvm_commands():
-            lines = list(exec_cmd("vgs --noheadings -o vg_name,vg_size,pv_name --units b --nosuffix".split(" ")))
+            lines = list(exec_cmd("vgs --noheadings -o vg_name,vg_size,pv_name,vg_free --units b --nosuffix".split(" ")))
             for vg in lines:
                 if vgs and vgs[-1][0] == vg[0]:
                     vgs[-1][2].append(vg[2])
                     continue
-                vgs.append([vg[0], vg[1], [vg[2]]])
+                vgs.append([vg[0], vg[1], [vg[2]], vg[3]])
         return [LvmVolumeGroup(vg) for vg in vgs]
 
 class LvmLogicalVolume(SysObject):

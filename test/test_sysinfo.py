@@ -194,9 +194,9 @@ class TestSysInfoLvmVolumeGroupGeneration(unittest.TestCase):
     @patch("diskgraph.sysinfo.checker", checker_mock(True))
     @patch("subprocess.check_output")
     def setUp(self, exec_mock):
-        exec_mock.return_value = ("  backup  700146778112 /dev/md1\n"
-                                  "  backup  700146778112 /dev/md2\n"
-                                  "  small    50008686592 /dev/sdd2\n")
+        exec_mock.return_value = ("  backup  700146778112 /dev/md1 0\n"
+                                  "  backup  700146778112 /dev/md2 0\n"
+                                  "  small    50008686592 /dev/sdd2 0\n")
         self.vgs = LvmVolumeGroup.generate()
 
     def test_that_two_lvm_volume_groups_are_found(self):
@@ -311,27 +311,27 @@ class TestLvmPhysicalVolume(unittest.TestCase):
 class LvmVolumeGroupTest(unittest.TestCase):
     def test_that_vg_is_child_of_pv_if_pv_among_names(self):
         pv = LvmPhysicalVolume("/dev/sda 1000".split(" "))
-        vg = LvmVolumeGroup(["test", "1000", ["/dev/sda"]])
+        vg = LvmVolumeGroup(["test", "1000", ["/dev/sda"], "0"])
         self.assertTrue(vg.is_child_of(pv))
 
     def test_that_vg_is_not_child_of_pv_if_pv_not_among_names(self):
         pv = LvmPhysicalVolume("/dev/sda 1000".split(" "))
-        vg = LvmVolumeGroup(["test", "1000", ["/dev/sdb"]])
+        vg = LvmVolumeGroup(["test", "1000", ["/dev/sdb"], "0"])
         self.assertFalse(vg.is_child_of(pv))
 
     def test_that_vg_is_not_child_of_root(self):
         r = Root()
-        vg = LvmVolumeGroup(["test", "1000", ["/dev/sdb"]])
+        vg = LvmVolumeGroup(["test", "1000", ["/dev/sdb"], "0"])
         self.assertFalse(vg.is_child_of(r))
 
 class LvmLogicalVolumeTest(unittest.TestCase):
     def test_that_lv_is_child_of_vg_with_correct_name(self):
-        vg = LvmVolumeGroup(["test", "1000", ["/dev/sdb"]])
+        vg = LvmVolumeGroup(["test", "1000", ["/dev/sdb"], "0"])
         lv = LvmLogicalVolume("small test 1000".split(" "))
         self.assertTrue(lv.is_child_of(vg))
 
     def test_that_lv_is_not_child_of_vg_with_wrong_name(self):
-        vg = LvmVolumeGroup(["blob", "1000", ["/dev/sdb"]])
+        vg = LvmVolumeGroup(["blob", "1000", ["/dev/sdb"], "0"])
         lv = LvmLogicalVolume("small test 1000".split(" "))
         self.assertFalse(lv.is_child_of(vg))
 
@@ -392,21 +392,35 @@ class TestFreeSpace(unittest.TestCase):
     def test_that_disk_expands_free_space(self):
         parts = [Partition("8 0 204800 sda".split(" ")),
                  Partition("8 1 51200 sda1".split(" "))]
-        disk = parts[0]
-        expanded = disk.expand(parts)
+        expanded = parts[0].expand(parts)
         self.assertTrue(FreeSpace in [e.__class__ for e in expanded])
 
     def test_that_disk_calculates_free_space_correctly(self):
         parts = [Partition("8 0 204800 sda".split(" ")),
                  Partition("8 1 51200 sda1".split(" "))]
-        disk = parts[0]
-        expanded = disk.expand(parts)
-        fs = [e for e in disk.expand(parts) if isinstance(e, FreeSpace)][0]
+        expanded = parts[0].expand(parts)
+        fs = [e for e in expanded if isinstance(e, FreeSpace)][0]
         self.assertEqual(157286400, fs.byte_size)
 
     def test_that_disk_doesnt_expand_small_free_space(self):
         parts = [Partition("8 0 204800 sda".split(" ")),
                  Partition("8 1 103424 sda1".split(" "))]
-        disk = parts[0]
-        expanded = disk.expand(parts)
+        expanded = parts[0].expand(parts)
         self.assertFalse(FreeSpace in [e.__class__ for e in expanded])
+
+    def test_that_lvm_vg_expands_free_space(self):
+        parts = [LvmVolumeGroup("test 209715200 /dev/sda1 157286400".split(" "))]
+        expanded = parts[0].expand(parts)
+        self.assertTrue(FreeSpace in [e.__class__ for e in expanded])
+
+    def test_that_lvm_vg_calculates_free_space_correctly(self):
+        parts = [LvmVolumeGroup("test 209715200 /dev/sda1 157286400".split(" "))]
+        expanded = parts[0].expand(parts)
+        fs = [e for e in expanded if isinstance(e, FreeSpace)][0]
+        self.assertEqual(157286400, fs.byte_size)
+
+    def test_that_lvm_vg_doesnt_expand_small_free_space(self):
+        parts = [LvmVolumeGroup("test 209715200 /dev/sda1 103809024".split(" "))]
+        expanded = parts[0].expand(parts)
+        self.assertFalse(FreeSpace in [e.__class__ for e in expanded])
+

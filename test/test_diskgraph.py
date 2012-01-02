@@ -114,7 +114,7 @@ class TestDiskGraphLvmVolumeGroup(Setup, unittest.TestCase):
     def test_that_volume_group_is_child_of_physical_volume(self):
         self.sysinfo.objects += [Partition("8 0 1000 sda".split(" "))]
         self.sysinfo.objects += [LvmPhysicalVolume("/dev/sda 1000".split(" "))]
-        self.sysinfo.objects += [LvmVolumeGroup(["group", "1000", ["/dev/sda"]])]
+        self.sysinfo.objects += [LvmVolumeGroup(["group", "1000", ["/dev/sda"], "0"])]
         dg = DiskGraph(self.sysinfo)
         tails = dg.tailsFor(self.sysinfo.objects[2])
         self.assertListEquivalent([self.sysinfo.objects[1]], tails)
@@ -124,7 +124,7 @@ class TestDiskGraphLvmVolumeGroup(Setup, unittest.TestCase):
                                  Partition("8 16 1000 sdb".split(" "))]
         self.sysinfo.objects += [LvmPhysicalVolume("/dev/sda 1000".split(" ")),
                                  LvmPhysicalVolume("/dev/sdb 1000".split(" "))]
-        self.sysinfo.objects += [LvmVolumeGroup(["group", "1000", ["/dev/sda", "/dev/sdb"]])]
+        self.sysinfo.objects += [LvmVolumeGroup(["group", "1000", ["/dev/sda", "/dev/sdb"], "0"])]
         dg = DiskGraph(self.sysinfo)
         tails = dg.tailsFor(self.sysinfo.objects[4])
         self.assertListEquivalent(self.are(LvmPhysicalVolume), tails)
@@ -133,7 +133,7 @@ class TestDiskGraphLvmLogicalVolume(Setup, unittest.TestCase):
     def test_that_logical_volume_is_child_of_volume_group(self):
         self.sysinfo.objects += [Partition("8 0 1000 sda".split(" "))]
         self.sysinfo.objects += [LvmPhysicalVolume("/dev/sda 1000".split(" "))]
-        self.sysinfo.objects += [LvmVolumeGroup(["group", "1000", ["/dev/sda"]])]
+        self.sysinfo.objects += [LvmVolumeGroup(["group", "1000", ["/dev/sda"], "0"])]
         self.sysinfo.objects += [LvmLogicalVolume(["test", "group", "1000"])]
         dg = DiskGraph(self.sysinfo)
         tails = dg.tailsFor(self.sysinfo.objects[3])
