@@ -26,13 +26,6 @@ __all__ = [
     "RaidArray",
     "MountedFileSystem",
     "SwapArea",
-    "ProcPartitions",
-    "Mdstat",
-    "LvmPvs",
-    "LvmVgs",
-    "LvmLvs",
-    "Mount",
-    "Swaps",
 ]
 
 BLOCK_SIZE = 1024
@@ -44,14 +37,24 @@ def open_file(f):
 def exec_cmd(args):
     return (re.split("\\s+", line.strip()) for line in subprocess.check_output(args).split("\n") if line != "")
 
-class NamedObject(object):
+class SysObject(object):
     def __str__(self):
         return "%s: %s" % (self.__class__.__name__, self.name)
 
-class Root(NamedObject):
+    def expand(self, candidates):
+        return [c for c in candidates if c.is_child_of(self)]
+
+    @classmethod
+    def generate(cls):
+        return []
+
+    def is_child_of(self, tail):
+        return False
+
+class Root(SysObject):
     name = "root"
 
-class Partition(NamedObject):
+class Partition(SysObject):
     def __init__(self, line_parts):
         self.kernel_major_minor = (int(line_parts[0]), int(line_parts[1]))
         self.byte_size = int(line_parts[2]) * BLOCK_SIZE
@@ -66,7 +69,11 @@ class Partition(NamedObject):
     def is_child_of(self, tail):
         return (isinstance(tail, Root) and self.is_disk()) or self.is_partition_for(tail)
 
-class LvmPhysicalVolume(NamedObject):
+    @classmethod
+    def generate(cls):
+        return [Partition(p) for p in list(open_file("/proc/partitions"))[2:]]
+
+class LvmPhysicalVolume(SysObject):
     def __init__(self, parts):
         self.name = parts[0].replace("/dev/", "")
         self.byte_size = int(parts[1])
@@ -74,7 +81,14 @@ class LvmPhysicalVolume(NamedObject):
     def is_child_of(self, tail):
         return isinstance(tail, (Partition, RaidArray)) and tail.name == self.name
 
-class LvmVolumeGroup(NamedObject):
+    @classmethod
+    def generate(cls):
+        lines = []
+        if checker.has_lvm_commands():
+            lines = list(exec_cmd("pvs --noheadings -o pv_name,pv_size --units b --nosuffix".split(" ")))
+        return [LvmPhysicalVolume(parts) for parts in lines]
+
+class LvmVolumeGroup(SysObject):
     def __init__(self, parts):
         self.name = parts[0]
         self.byte_size = int(parts[1])
@@ -83,7 +97,19 @@ class LvmVolumeGroup(NamedObject):
     def is_child_of(self, tail):
         return isinstance(tail, LvmPhysicalVolume) and tail.name in self.pv_names
 
-class LvmLogicalVolume(NamedObject):
+    @classmethod
+    def generate(cls):
+        vgs = []
+        if checker.has_lvm_commands():
+            lines = list(exec_cmd("vgs --noheadings -o vg_name,vg_size,pv_name --units b --nosuffix".split(" ")))
+            for vg in lines:
+                if vgs and vgs[-1][0] == vg[0]:
+                    vgs[-1][2].append(vg[2])
+                    continue
+                vgs.append([vg[0], vg[1], [vg[2]]])
+        return [LvmVolumeGroup(vg) for vg in vgs]
+
+class LvmLogicalVolume(SysObject):
     def __init__(self, parts):
         self.name = parts[0]
         self.vg_name = parts[1]
@@ -92,7 +118,14 @@ class LvmLogicalVolume(NamedObject):
     def is_child_of(self, tail):
         return isinstance(tail, LvmVolumeGroup) and self.vg_name == tail.name
 
-class RaidArray(NamedObject):
+    @classmethod
+    def generate(cls):
+        lines = []
+        if checker.has_lvm_commands():
+            lines = list(exec_cmd("lvs --noheadings -o lv_name,vg_name,lv_size --units b --nosuffix".split(" ")))
+        return [LvmLogicalVolume(parts) for parts in lines]
+
+class RaidArray(SysObject):
     def __init__(self, data):
         """([name, partition_names...], #blocks)"""
         arr, blocks = data
@@ -103,7 +136,16 @@ class RaidArray(NamedObject):
     def is_child_of(self, tail):
         return isinstance(tail, Partition) and tail.name in self.partition_names
 
-class MountedFileSystem(NamedObject):
+    @classmethod
+    def generate(cls):
+        if checker.has_mdstat():
+            lines = [line for line in open_file("/proc/mdstat")]
+            info = [[i[0]] + [j[:j.find("[")] for j in i[4:] if re.match(".+\\[\\d+\\](\\([A-Z]\\))*", j)] for i in lines if i[0].startswith("md")]
+            sizes = [int(line[0]) for line in lines if "blocks" in line]
+            return [RaidArray(arr) for arr in zip(info, sizes)]
+        return []
+
+class MountedFileSystem(SysObject):
     def __init__(self, parts):
         self.name = parts[5]
         self.path = parts[0]
@@ -116,7 +158,14 @@ class MountedFileSystem(NamedObject):
             return "/dev/mapper/%s-%s" % (tail.vg_name, tail.name) == self.path
         return False
 
-class SwapArea(NamedObject):
+    @classmethod
+    def generate(cls):
+        lines = []
+        if checker.has_df_command():
+            lines = list(exec_cmd("df -P -B 1".split(" ")))[1:]
+        return [MountedFileSystem(parts) for parts in lines]
+
+class SwapArea(SysObject):
     def __init__(self, parts):
         self.name = parts[0].replace("/dev/", "")
         self.byte_size = int(parts[2]) * BLOCK_SIZE
@@ -126,77 +175,15 @@ class SwapArea(NamedObject):
             return tail.name == self.name
         return False
 
-class SequenceBase(object):
-    def __getitem__(self, index):
-        return self._items[index]
-
-    def __len__(self):
-        return len(self._items)
-
-    def __iter__(self):
-        return (i for i in self._items)
-
-class ProcPartitions(SequenceBase):
-    def __init__(self):
-        self._items = [Partition(p) for p in list(open_file("/proc/partitions"))[2:]]
-
-class Mdstat(SequenceBase):
-    def __init__(self):
-        if checker.has_mdstat():
-            lines = [line for line in open_file("/proc/mdstat")]
-            info = [[i[0]] + [j[:j.find("[")] for j in i[4:] if re.match(".+\\[\\d+\\](\\([A-Z]\\))*", j)] for i in lines if i[0].startswith("md")]
-            sizes = [int(line[0]) for line in lines if "blocks" in line]
-            self._items = [RaidArray(arr) for arr in zip(info, sizes)]
-        else:
-            self._items = []
-
-class LvmPvs(SequenceBase):
-    def __init__(self):
-        lines = []
-        if checker.has_lvm_commands():
-            lines = list(exec_cmd("pvs --noheadings -o pv_name,pv_size --units b --nosuffix".split(" ")))
-        self._items = [LvmPhysicalVolume(parts) for parts in lines]
-
-class LvmVgs(SequenceBase):
-    def __init__(self):
-        vgs = []
-        if checker.has_lvm_commands():
-            lines = list(exec_cmd("vgs --noheadings -o vg_name,vg_size,pv_name --units b --nosuffix".split(" ")))
-            for vg in lines:
-                if vgs and vgs[-1][0] == vg[0]:
-                    vgs[-1][2].append(vg[2])
-                    continue
-                vgs.append([vg[0], vg[1], [vg[2]]])
-        self._items = [LvmVolumeGroup(vg) for vg in vgs]
-
-class LvmLvs(SequenceBase):
-    def __init__(self):
-        lines = []
-        if checker.has_lvm_commands():
-            lines = list(exec_cmd("lvs --noheadings -o lv_name,vg_name,lv_size --units b --nosuffix".split(" ")))
-        self._items = [LvmLogicalVolume(parts) for parts in lines]
-
-class Mount(SequenceBase):
-    def __init__(self):
-        lines = []
-        if checker.has_df_command():
-            lines = list(exec_cmd("df -P -B 1".split(" ")))[1:]
-        self._items = [MountedFileSystem(parts) for parts in lines]
-
-class Swaps(SequenceBase):
-    def __init__(self):
+    @classmethod
+    def generate(cls):
         lines = []
         if checker.has_swaps():
             lines = [line for line in open_file("/proc/swaps")][1:]
-        self._items = [SwapArea(parts) for parts in lines]
+        return [SwapArea(parts) for parts in lines]
 
 class SysInfo(object):
     def __init__(self):
-        self.partitions = ProcPartitions()
-        self.raid_arrays = Mdstat()
-        self.lvm_pvs = LvmPvs()
-        self.lvm_vgs = LvmVgs()
-        self.lvm_lvs = LvmLvs()
-        self.mounts = Mount()
-        self.swaps = Swaps()
+        sos = [v for v in globals().values() if isinstance(v, type) and SysObject in v.__bases__]
+        self.objects = reduce(lambda x, y: x + y, [so.generate() for so in sos], [])
 
