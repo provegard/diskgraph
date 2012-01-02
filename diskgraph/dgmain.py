@@ -19,6 +19,7 @@ __license__ = "BSD-3-Clause"
 
 import os, sys
 from check import checker
+from diskgraph import DiskGraph
 
 if not checker.has_partitions():
     sys.exit("The file /proc/partitions must exist.\n")
@@ -40,7 +41,6 @@ if checker.has_lvm_commands() and __name__ == "__main__":
     if os.geteuid() != 0:
         sys.exit("Only root can run this script, because the LVM commands need that.\n")
 
-from diskgraph import DiskGraph, FreeSpace
 from sysinfo import *
 import pydot
 
@@ -50,7 +50,6 @@ colors = {
     LvmPhysicalVolume: "chocolate",
     LvmVolumeGroup: "coral",
     LvmLogicalVolume: "mediumorchid1",
-    FreeSpace: ("red", "white"),
     MountedFileSystem: ("navy", "white"),
     SwapArea: "mediumslateblue",
 }

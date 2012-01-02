@@ -139,25 +139,3 @@ class TestDiskGraphLvmLogicalVolume(Setup, unittest.TestCase):
         tails = dg.tailsFor(self.sysinfo.objects[3])
         self.assertListEquivalent(self.are(LvmVolumeGroup), tails)
 
-class TestFreeSpace(Setup, unittest.TestCase):
-    def test_that_free_space_node_is_not_added_for_less_than_5MB_free_space(self):
-        self.sysinfo.objects += [Partition("8 0 6119 sda".split(" ")),
-                                 Partition("8 1 1000 sda1".split(" "))]
-        dg = DiskGraph(self.sysinfo)
-        visited = [x.name for x in list(dg.visit(dg.root))]
-        self.assertFalse("free" in visited)
-
-    def test_that_free_space_node_is_added(self):
-        self.sysinfo.objects += [Partition("8 0 6120 sda".split(" ")),
-                                 Partition("8 1 1000 sda1".split(" "))]
-        dg = DiskGraph(self.sysinfo)
-        visited = [x.name for x in list(dg.visit(dg.root))]
-        self.assertTrue("free" in visited)
-
-    def test_that_free_space_is_calculated_correctly(self):
-        self.sysinfo.objects += [Partition("8 0 5620 sda".split(" ")),
-                                 Partition("8 1 500 sda1".split(" "))]
-        dg = DiskGraph(self.sysinfo)
-        freenode = [x for x in list(dg.visit(dg.root)) if x.name == "free"][0]
-        self.assertEqual(5242880, freenode.byte_size)
-

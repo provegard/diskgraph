@@ -14,15 +14,7 @@ __license__ = "BSD-3-Clause"
 
 import re
 from sysinfo import *
-from sysinfo import SysObject
 from sgraph import SimpleGraph
-
-FREE_SPACE_LIMIT = 5 * 1024 * 1024
-
-class FreeSpace(SysObject):
-    name = "free"
-    def __init__(self, size):
-        self.byte_size = size
 
 class DiskGraph(SimpleGraph):
     def __init__(self, sysinfo):
@@ -30,15 +22,7 @@ class DiskGraph(SimpleGraph):
         SimpleGraph.__init__(self, self.headfinder, Root())
 
     def headfinder(self, v):
-        heads = v.expand(self.pool)
-        if heads and hasattr(v, "byte_size"):
-            sizes = [h.byte_size for h in heads if hasattr(h, "byte_size")]
-            if len(sizes) == len(heads):
-                heads_size_sum = sum(sizes)
-                diff = v.byte_size - heads_size_sum
-                if diff >= FREE_SPACE_LIMIT:
-                    heads.append(FreeSpace(v.byte_size - heads_size_sum))
-        return heads
+        return v.expand(self.pool)
 
     def dump(self):
         self._print(self.root, 0)
