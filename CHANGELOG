@@ -1,3 +1,8 @@
+v1.2 (2012-01-02)
+* Increased robustness wrt missing commands or files (issue #1)
+* Added inclusion of swap areas
+* Automatic to manual free space expansion to avoid irrelevant free space
+* Some improved node labels
 
 v1.1 (2011-12-28)
 * Coloring of graph nodes
